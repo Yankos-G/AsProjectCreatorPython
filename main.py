@@ -1,16 +1,36 @@
-# This is a sample Python script.
+import xml.etree.ElementTree as ET
 
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+route = 'C:\projects\Clear\Physical\Config1\Hardware.hwl'
+mytree = ET.parse(route)
+myroot = mytree.getroot()
+#
+# # print(myroot[1].tag)
+# for x in myroot[1]:
+#     a=print(x.attrib)
+#
+# # for x in myroot.iter(myroot[0].tag):
+# #     print(x.attrib)
+#
+
+print(myroot[1][0].attrib.keys())
+print(myroot[1][0].attrib.values())
+print(myroot[1][0].attrib.get('Type')) #szuka w keys
+print(myroot[1][0].attrib)
+
+print('=================OLD=============================')
+file = open(route,'r')
+print(file.read())
+
+myroot[1][0].set('Name','AAAAAa')
+
+mytree.write(route)
+print('=================NEW=============================')
+file = open(route,'r')
+print(file.read())
 
 
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
 
-
-# Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    print_hi('PyCharm')
+    print('')
+    input()
 
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
