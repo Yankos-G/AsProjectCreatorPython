@@ -55,24 +55,21 @@
 #         clicked=0;
 #         exit()
 
-import pyautogui as py
+ #Import pyautogui
+import time
+import string
 import random
 import string
-import pyautogui as py #Import pyautogui
-import time #Import Time
-############################################################################
-#BOT MA SZTYWNO WPISANE WARTOŚCI CZEKANIA - WOLNY KOMPUTER = BOT NIE DZIAŁA
-#mozna ewentualnie wykrywać na ekranie rzeczy
-############################################################################
-
+import pyautogui as py
 
 def get_random_string(length):
     letters = string.ascii_letters
     result_str = ''.join(random.choice(letters) for i in range(length))
     return result_str
 
+
 str = get_random_string(2)
-project_name= 'project_bot' + str
+project_name= 'TEST' + str
 module_name = 'X20CP1584'
 
 state = 'find_icon'
@@ -82,10 +79,11 @@ while True:
         case 'find_icon':
             try:
                 a = py.locateOnScreen('C:/Users/Szkolenie/Desktop/AS/AS.png')
-                py.doubleClick(a.left, a.top)
+                py.doubleClick(a.left+15, a.top+10)
                 print('Icon located', a)
                 state= 'is_open'
             except:
+                time.sleep(0.25)
                 print('Cannot find AS icon on desktop')
         case 'is_open':
             try:
@@ -95,6 +93,7 @@ while True:
                 py.hotkey('CTRL', 'SHIFT', 'N')
                 state = 'type_project_name'
             except:
+                time.sleep(0.25)
                 print('Waiting for program')
         case 'type_project_name':
             try:
@@ -105,6 +104,7 @@ while True:
                 py.hotkey('enter')
                 state = 'choose_config'
             except:
+                time.sleep(0.25)
                 print('Waiting for wizard')
         case 'choose_config':
             try:
@@ -114,6 +114,7 @@ while True:
                 py.hotkey('enter')
                 state = 'choose_hardware'
             except:
+                time.sleep(0.25)
                 print('Waiting for config')
         case 'choose_hardware':
             try:

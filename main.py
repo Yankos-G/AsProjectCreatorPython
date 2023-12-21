@@ -4,24 +4,25 @@ import random
 import os
 from os import listdir
 from os.path import isfile, join, isdir
-
+import sys
+#a=sys.argv[1]
 which_disk_br = 'C:/'
+LIB_DESCRIPT = 'program added library'
 
-# inputs
 as_project_path = r'C:\projects'
-filename = r'Clear'
+filename = r'TESTLD'
 
 library_path = r'C:\BRAutomation\AS\Library'
 
-# KOD TO SZUKANIA PLIKÓW BIBLIOTEK
-def find_modules(disk_path):
-    for dirpath, dirnames, filenames in os.walk(disk_path):
-        for dirname in dirnames:
-            if dirname == "BRAutomation":
-                dirname = os.path.join(dirpath, dirname)
-                mypath = dirpath + r'BRAutomation/AS412/AS/Hardware/Modules'
-                modules = [f for f in listdir(mypath) if isdir(join(mypath, f))]
-                return modules,mypath
+# # KOD TO SZUKANIA PLIKÓW BIBLIOTEK
+# def find_modules(disk_path):
+#     for dirpath, dirnames, filenames in os.walk(disk_path):
+#         for dirname in dirnames:
+#             if dirname == "BRAutomation":
+#                 dirname = os.path.join(dirpath, dirname)
+#                 mypath = dirpath + r'BRAutomation/AS412/AS/Hardware/Modules'
+#                 modules = [f for f in listdir(mypath) if isdir(join(mypath, f))]
+#                 return modules,mypath
 
 
 
@@ -38,7 +39,7 @@ def find_modules(disk_path):
                 return modules,BRAutomation_path,libraries
 
 
-def find_module_version(module,path):
+def find_module_version(module, path):
     path = path + '/' + module
     version = [f for f in listdir(path) if isdir(join(path, f))]
     return version
@@ -67,7 +68,7 @@ def get_to_files(path, name):
     except:
         print('ERROR - Cannot get to file in destination:', pathL)
         exit()
-    return rootHW_fun, rootHWL_fun, rootL, pathHW_fun, pathHWL_fun, pathL
+    return rootHW_fun, rootHWL_fun, rootL, pathHW_fun, pathHWL_fun, pathL, treeHW_fun
 
 
 def get_random_string(length):
@@ -76,17 +77,37 @@ def get_random_string(length):
     return result_str
 
 
-def add_element(root_hw, root_hwl, path_hw, path_hwl, type, version):
+def add_element(root_hw, root_hwl, path_hw, path_hwl, type, version,m_list, m_path, tree_hw):
     str = get_random_string(1)
     element = etree.SubElement(root_hwl, 'Module', Name=type + str, Type=type, X='450', Y='450')
     root_hwl[1][0].append(element)
     etree.ElementTree(root_hwl).write(path_hwl)
     print(element.tag, element.attrib)
 
+    #JEŻELI TO MODUŁ IO TO DODAJ TO ABY POŁACZYĆ
+    # MODULES
+    typeTB = m_list[m_list.index('X20TB12')]
+    typeBM = m_list[m_list.index('X20BM11')]
+    m_verTB = find_module_version(typeTB, m_path)
+    m_verBM = find_module_version(typeBM, m_path)
+    print(typeTB)
+    print(m_verTB)
+    elementTB = etree.SubElement(root_hw, 'Module', Name=typeTB + str, Type=typeTB, Version=m_verTB[0])
+    root_hw.append(elementTB)
+    elementBM = etree.SubElement(root_hw, 'Module', Name=typeBM + str, Type=typeBM, Version=m_verBM[0])
+    root_hw.append(elementBM)
+    # CONNECTIONS
+    #
+    # connectBM = etree.SubElement(elementTB, 'Connection', Connector='X2X1', TargetModule='X20BM11Xh', TargetConnector='X2X2')
+    # root_hw.append(connectBM)
+    # # last =
+
+
     element = etree.SubElement(root_hw, 'Module', Name=type + str, Type=type, Version=version)
     root_hw.append(element)
     etree.ElementTree(root_hw).write(path_hw)
     print(element.tag, element.attrib)
+
 
 def add_library(root, path, name,descript):
     element = etree.SubElement(root, 'Object', Type="Library", Language="Binary", Description=descript)
@@ -99,18 +120,28 @@ def add_library(root, path, name,descript):
 
 
 if __name__ == '__main__':
-    module_list,module_path,libraries = find_modules(which_disk_br) #lista modułów zainstalowanych na dysku C
-    chosen_module = module_list[1753]
-    module_version = find_module_version(chosen_module,module_path)
-    chosen_module1 = module_list[1866]
-    module_version1 = find_module_version(chosen_module1, module_path)
-    chosen_module2 = module_list[1527]
+    module_list, module_path, libraries = find_modules(which_disk_br) #lista modułów zainstalowanych na dysku C
+    # chosen_module = module_list[1753]
+    # module_version = find_module_version(chosen_module, module_path)
+    # chosen_module1 = module_list[1866]
+    # module_version1 = find_module_version(chosen_module1, module_path)
+
+    # 0 - 951 STARSZE I ROZNE
+    # 952  - 1455 ACOPOSY
+    # 1480 - 1520 KAMERY WIZYJNE
+    # 1520 - 2093 MODUŁY IO
+    chosen_module2 = module_list[1530]
     module_version2 = find_module_version(chosen_module2, module_path)
 
-    rootHW, rootHWL, rootLib, pathHW, pathHWL, pathLib = get_to_files(as_project_path, filename)
+    rootHW, rootHWL, rootLib, pathHW, pathHWL, pathLib, treeHW = get_to_files(as_project_path, filename)
     # add_element(rootHW, rootHWL, pathHW, pathHWL, chosen_module, module_version[0])
     # add_element(rootHW, rootHWL, pathHW, pathHWL, chosen_module1, module_version1[0])
-    # add_element(rootHW, rootHWL, pathHW, pathHWL, chosen_module2, module_version2[0])
-    lib_descript = 'program added library'
-    add_library(rootLib, pathLib, libraries[72], lib_descript)
+    # add_element(rootHW, rootHWL, pathHW, pathHWL, chosen_module2, module_version2[0], module_list, module_path,treeHW)
+
+
+    # for neighbor in rootHW.iter():
+    #     print(neighbor.attrib)
+
+    # add_library(rootLib, pathLib, libraries[105], LIB_DESCRIPT)
+    print(etree.tostring(rootHW, pretty_print=True,encoding='unicode'))
     print('END')
