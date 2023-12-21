@@ -1,4 +1,5 @@
 import lxml.etree as etree
+from lxml import objectify
 import string
 import random
 import os
@@ -84,7 +85,16 @@ def add_element(root_hw, root_hwl, path_hw, path_hwl, type, version,m_list, m_pa
     etree.ElementTree(root_hwl).write(path_hwl)
     print(element.tag, element.attrib)
 
-    #JEŻELI TO MODUŁ IO TO DODAJ TO ABY POŁACZYĆ
+    element = etree.SubElement(root_hw, 'Module', Name=type + str, Type=type, Version=version)
+    root_hw.append(element)
+    print(element.tag, element.attrib)
+
+    # <Module Name="X20AI2632-1Q" Type="X20AI2632-1" Version="1.2.0.0">
+    #   <Connection Connector="SS1" TargetModule="X20TB12Q" TargetConnector="SS" />
+    #   <Connection Connector="SL" TargetModule="X20BM11Q" TargetConnector="SL1" />
+    # </Module>
+
+    # JEŻELI TO MODUŁ IO TO DODAJ TO ABY POŁACZYĆ
     # MODULES
     typeTB = m_list[m_list.index('X20TB12')]
     typeBM = m_list[m_list.index('X20BM11')]
@@ -96,17 +106,16 @@ def add_element(root_hw, root_hwl, path_hw, path_hwl, type, version,m_list, m_pa
     root_hw.append(elementTB)
     elementBM = etree.SubElement(root_hw, 'Module', Name=typeBM + str, Type=typeBM, Version=m_verBM[0])
     root_hw.append(elementBM)
-    # CONNECTIONS
-    #
-    # connectBM = etree.SubElement(elementTB, 'Connection', Connector='X2X1', TargetModule='X20BM11Xh', TargetConnector='X2X2')
-    # root_hw.append(connectBM)
-    # # last =
+
+    # CONNECTIONS - DODANIE CHILD DO ELEMENTU
+    etree.SubElement(element, 'Connection', Connector='SL', TargetModule=typeBM + str,
+                                       TargetConnector='SL1')
+    etree.SubElement(element, 'Connection', Connector='SS1', TargetModule=typeTB + str,
+                                        TargetConnector='SS')
 
 
-    element = etree.SubElement(root_hw, 'Module', Name=type + str, Type=type, Version=version)
-    root_hw.append(element)
+    # ZAPIS DO PLIKU HW
     etree.ElementTree(root_hw).write(path_hw)
-    print(element.tag, element.attrib)
 
 
 def add_library(root, path, name,descript):
@@ -121,22 +130,18 @@ def add_library(root, path, name,descript):
 
 if __name__ == '__main__':
     module_list, module_path, libraries = find_modules(which_disk_br) #lista modułów zainstalowanych na dysku C
-    # chosen_module = module_list[1753]
-    # module_version = find_module_version(chosen_module, module_path)
-    # chosen_module1 = module_list[1866]
-    # module_version1 = find_module_version(chosen_module1, module_path)
+
 
     # 0 - 951 STARSZE I ROZNE
     # 952  - 1455 ACOPOSY
     # 1480 - 1520 KAMERY WIZYJNE
     # 1520 - 2093 MODUŁY IO
-    chosen_module2 = module_list[1530]
-    module_version2 = find_module_version(chosen_module2, module_path)
+    chosen_module = module_list[1530]
+    module_version = find_module_version(chosen_module, module_path)
 
     rootHW, rootHWL, rootLib, pathHW, pathHWL, pathLib, treeHW = get_to_files(as_project_path, filename)
-    # add_element(rootHW, rootHWL, pathHW, pathHWL, chosen_module, module_version[0])
-    # add_element(rootHW, rootHWL, pathHW, pathHWL, chosen_module1, module_version1[0])
-    # add_element(rootHW, rootHWL, pathHW, pathHWL, chosen_module2, module_version2[0], module_list, module_path,treeHW)
+
+    add_element(rootHW, rootHWL, pathHW, pathHWL, chosen_module, module_version[0], module_list, module_path,treeHW)
 
 
     # for neighbor in rootHW.iter():
