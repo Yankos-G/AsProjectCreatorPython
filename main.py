@@ -17,6 +17,7 @@ library_path = r'C:\BRAutomation\AS\Library'
 PLCname = 'X20CP1584'
 
 # CONSTANTS
+module_names = []
 BRAutomation_path = ''
 IF6busy = False
 last = ''
@@ -88,6 +89,7 @@ def get_random_string(length):
 def add_IO(root_hw, root_hwl, path_hw, path_hwl, type, version, m_list, m_path, tree_hw):
     global IF6busy
     global last
+    global module_names
     str = get_random_string(1)
     name = type + str
     element = etree.SubElement(root_hwl, 'Module', Name=name, Type=type, X='450', Y='450')
@@ -98,6 +100,7 @@ def add_IO(root_hw, root_hwl, path_hw, path_hwl, type, version, m_list, m_path, 
     element = etree.SubElement(root_hw, 'Module', Name=name, Type=type, Version=version[0])
     root_hw.append(element)
     print(element.tag, element.attrib)
+    module_names.append(name)
 
     typeTB = m_list[m_list.index('X20TB12')]
     typeBM = m_list[m_list.index('X20BM11')]
@@ -152,7 +155,7 @@ def add_library(root, path, name, descript):
     print(path)
 
 
-def add_mapping(path, PLC):
+def add_mapping(path, PLC):                                          # ------------ NOT DONE --------------------
     # WYRZUCA CAŁY PLIK I NADPISUJE
     text_file = open(path + "/Physical/Config1/" + PLC + "/IoMap.iom", "w")
     text_file.write('VAR_CONFIG\n')
@@ -165,27 +168,29 @@ def add_mapping(path, PLC):
     print('Mapping added')
 
 
-def add_global_var(path, list_var):
+def add_global_var(path, list_var, names):                                  # ------------ NOT DONE --------------------
     # DEKLARACJA STRUKTUR / VAR TYPE
     text_file = open(path + "/Logical/Global.typ", "w")
     text_file.write('TYPE\n')
-    for a in list_var:
-        text_file.write('{0}_type : STRUCT\n'.format(a))
-#     text_file.write('''IOMODULE : STRUCT
-# ModuleOK : BOOL;
-# In1 : USINT;
-# iN2 : USINT;
-# in3 : USINT;
-# END_STRUCT;\n''')
+    for i in range(len(names)):
+        text_file.write('{0}_type : STRUCT\n'.format(names[i]))
+        print(names[i])
+        for a in list_var[0]:
+            if a == list_var[0][0]:
+                continue
+            text_file.write('{0} : {1};\n'.format(a[0], a[1]))
+        text_file.write('END_STRUCT;\n')
     text_file.write('END_TYPE\n')
     text_file.close()
 
-    # DEKLARACJA ZMIENNYCH GLOBALNYCH STRUKTUR
-    text_file = open(path + "/Logical/Global.var", "w")
-    text_file.write('VAR\n')
-    #TU WPISZ
-    text_file.write('END_VAR\n')
-    text_file.close()
+    # # DEKLARACJA ZMIENNYCH GLOBALNYCH STRUKTUR
+    # text_file = open(path + "/Logical/Global.var", "w")
+    # text_file.write('VAR\n')
+    # #TU WPISZ
+    # text_file.write('END_VAR\n')
+    # text_file.close()
+
+
 
 
 def find_IO_VarType(path, modules, versions):
@@ -205,7 +210,7 @@ def find_IO_VarType(path, modules, versions):
 
         # Wyświetlenie ilości Channel dla parenta <Channels Target="SG3">
         # print(f"{module} - Ilość: {len(channels_sg3)}")
-
+        old = ''
         # Przeanalizowanie linii <Parameter ID="Type" Value="BOOL" Type="STRING" /> w każdym z pozyskanych Channel
         for channel in channels_sg3:
             type_parameter = channel.xpath('./ns:Parameter[@ID="Type"][@Type="STRING"]', namespaces=ns)
@@ -213,14 +218,16 @@ def find_IO_VarType(path, modules, versions):
             if type_parameter:
                 value = type_parameter[0].get('Value')
                 channel_value = f"{module} {channel.get('ID')} {value}"
-                # print(channel_value)
-                var_list.append([module])
-                var_list[f].append(channel.get('ID'))
-                var_list[f].append(value)
-                f = f + 1
+                # print(channel.get('ID'))
+                # print(value)
+                if module != old:
+                    var_list.append([module])
+                    f = f + 1
+
+                var_list[f-1].append([channel.get('ID'),value])
+                old = module
             else:
                 print(f"  Brak informacji {channel.get('ID')}")
-
     return var_list
 
 if __name__ == '__main__':
@@ -230,6 +237,8 @@ if __name__ == '__main__':
     # 952  - 1455 ACOPOSY
     # 1480 - 1520 KAMERY WIZYJNE
     # 1520 - 2093 MODUŁY IO (NIEKONIECZNIE WSZYSTKIE SĄ IO)
+
+    # ZMIEN TE DWA W JEDNO ---------------
     chosen_module = [module_list[1828],module_list[1864],module_list[1546],module_list[1529]]
     module_version = [find_module_version(chosen_module[0], module_path),find_module_version(chosen_module[1], module_path)
         ,find_module_version(chosen_module[2], module_path),find_module_version(chosen_module[3], module_path)]
@@ -238,11 +247,10 @@ if __name__ == '__main__':
 
     for z in range(len(chosen_module)):
         add_IO(rootHW, rootHWL, pathHW, pathHWL, chosen_module[z-1], module_version[z-1], module_list, module_path, treeHW)
-
+    #
     packed_var = find_IO_VarType(BRAutomation_path, chosen_module, module_version)
-    for a in packed_var:
-        print(a)
-    # add_global_var(project_path, packed_var)
+
+    add_global_var(project_path, packed_var, module_names)
     # add_mapping(project_path, PLCname)
     # add_library(rootLib, pathLib, libraries[105], LIB_DESCRIPT)
 
