@@ -11,19 +11,17 @@ import sys
 
 # INPUTS
 which_disk_br = 'C:/'
-
-
 as_project_path = r'C:\projects'
 filename = r'TESTLD'
-
 library_path = r'C:\BRAutomation\AS\Library'
-
 PLCname = 'X20CP1584'
 
-# CONSTANT
+# CONSTANTS
+BRAutomation_path = ''
 IF6busy = False
 last = ''
 LIB_DESCRIPT = 'program added library'
+project_path = as_project_path + chr(92) + filename
 
 # # KOD TO SZUKANIA PLIKÓW BIBLIOTEK
 # def find_modules(disk_path):
@@ -42,6 +40,7 @@ def find_modules(disk_path):
         for dirname in dirnames:
             if dirname == "BRAutomation":
                 dirname = os.path.join(dirpath, dirname)
+                global BRAutomation_path
                 BRAutomation_path = dirpath + r'BRAutomation/AS412/AS/Hardware/Modules'
                 Library_path = dirpath + r'BRAutomation/AS/Library'
                 modules = [f for f in listdir(BRAutomation_path) if isdir(join(BRAutomation_path, f))]
@@ -55,11 +54,10 @@ def find_module_version(module, path):
     return version
 
 
-def get_to_files(path, name):
-    input_path = path + chr(92) + name
-    pathHWL_fun = input_path + r'\Physical\Config1\Hardware.hwl'
-    pathHW_fun = input_path + r'\Physical\Config1\Hardware.hw'
-    pathL = input_path + r'\Logical\Libraries\Package.pkg'
+def get_to_files(path):
+    pathHWL_fun = path + r'\Physical\Config1\Hardware.hwl'
+    pathHW_fun = path + r'\Physical\Config1\Hardware.hw'
+    pathL = path + r'\Logical\Libraries\Package.pkg'
     try:
         treeHWL_fun = etree.parse(pathHWL_fun)
         rootHWL_fun = treeHWL_fun.getroot()
@@ -91,12 +89,13 @@ def add_IO(root_hw, root_hwl, path_hw, path_hwl, type, version, m_list, m_path, 
     global IF6busy
     global last
     str = get_random_string(1)
-    element = etree.SubElement(root_hwl, 'Module', Name=type + str, Type=type, X='450', Y='450')
+    name = type + str
+    element = etree.SubElement(root_hwl, 'Module', Name=name, Type=type, X='450', Y='450')
     root_hwl[1][0].append(element)
     etree.ElementTree(root_hwl).write(path_hwl)
     print(element.tag, element.attrib)
 
-    element = etree.SubElement(root_hw, 'Module', Name=type + str, Type=type, Version=version)
+    element = etree.SubElement(root_hw, 'Module', Name=name, Type=type, Version=version[0])
     root_hw.append(element)
     print(element.tag, element.attrib)
 
@@ -153,29 +152,99 @@ def add_library(root, path, name, descript):
     print(path)
 
 
+def add_mapping(path, PLC):
+    # WYRZUCA CAŁY PLIK I NADPISUJE
+    text_file = open(path + "/Physical/Config1/" + PLC + "/IoMap.iom", "w")
+    text_file.write('VAR_CONFIG\n')
+    # NALEZY DODAC 4 INFORMACJE TUTAJ
+    # Nazwa zmiennej - WE/WY - MODUŁ - Channel
+    # text_file.write('::{0} AT %{1}X."{2}".{3};\n'.format(,,,)
+    text_file.write('::ASEG1 AT %IX."X20AI4632P".StaleData; ::ASEG AT %IX."X20AI4632P".ModuleOk;\n')
+    text_file.write('END_VAR\n')
+    text_file.close()
+    print('Mapping added')
+
+
+def add_global_var(path, list_var):
+    # DEKLARACJA STRUKTUR / VAR TYPE
+    text_file = open(path + "/Logical/Global.typ", "w")
+    text_file.write('TYPE\n')
+    for a in list_var:
+        text_file.write('{0}_type : STRUCT\n'.format(a))
+#     text_file.write('''IOMODULE : STRUCT
+# ModuleOK : BOOL;
+# In1 : USINT;
+# iN2 : USINT;
+# in3 : USINT;
+# END_STRUCT;\n''')
+    text_file.write('END_TYPE\n')
+    text_file.close()
+
+    # DEKLARACJA ZMIENNYCH GLOBALNYCH STRUKTUR
+    text_file = open(path + "/Logical/Global.var", "w")
+    text_file.write('VAR\n')
+    #TU WPISZ
+    text_file.write('END_VAR\n')
+    text_file.close()
+
+
+def find_IO_VarType(path, modules, versions):
+    i = 0
+    f = 0
+    var_list = []
+    for module in modules:
+        inputpath = path + r'/{0}/{1}/{2}.hwx'.format(module, (versions[i])[0], module)
+        i = i + 1
+        tree = etree.parse(inputpath)
+
+        # Przestrzeń nazw XML
+        ns = {'ns': 'http://br-automation.co.at/AS/HardwareModule'}
+
+        # Wyszukanie elementów Channel dla parenta <Channels Target="SG3">
+        channels_sg3 = tree.xpath('//ns:Channels[@Target="SG3"]/ns:Channel', namespaces=ns)
+
+        # Wyświetlenie ilości Channel dla parenta <Channels Target="SG3">
+        # print(f"{module} - Ilość: {len(channels_sg3)}")
+
+        # Przeanalizowanie linii <Parameter ID="Type" Value="BOOL" Type="STRING" /> w każdym z pozyskanych Channel
+        for channel in channels_sg3:
+            type_parameter = channel.xpath('./ns:Parameter[@ID="Type"][@Type="STRING"]', namespaces=ns)
+
+            if type_parameter:
+                value = type_parameter[0].get('Value')
+                channel_value = f"{module} {channel.get('ID')} {value}"
+                # print(channel_value)
+                var_list.append([module])
+                var_list[f].append(channel.get('ID'))
+                var_list[f].append(value)
+                f = f + 1
+            else:
+                print(f"  Brak informacji {channel.get('ID')}")
+
+    return var_list
+
 if __name__ == '__main__':
     module_list, module_path, libraries = find_modules(which_disk_br)  # lista modułów zainstalowanych na dysku C
 
     # 0 - 951 STARSZE I ROZNE
     # 952  - 1455 ACOPOSY
     # 1480 - 1520 KAMERY WIZYJNE
-    # 1520 - 2093 MODUŁY IO
-    chosen_module = module_list[1530]
-    module_version = find_module_version(chosen_module, module_path)
+    # 1520 - 2093 MODUŁY IO (NIEKONIECZNIE WSZYSTKIE SĄ IO)
+    chosen_module = [module_list[1828],module_list[1864],module_list[1546],module_list[1529]]
+    module_version = [find_module_version(chosen_module[0], module_path),find_module_version(chosen_module[1], module_path)
+        ,find_module_version(chosen_module[2], module_path),find_module_version(chosen_module[3], module_path)]
 
-    rootHW, rootHWL, rootLib, pathHW, pathHWL, pathLib, treeHW = get_to_files(as_project_path, filename)
+    rootHW, rootHWL, rootLib, pathHW, pathHWL, pathLib, treeHW = get_to_files(project_path)
 
-    add_IO(rootHW, rootHWL, pathHW, pathHWL, chosen_module, module_version[0], module_list, module_path, treeHW)
-    add_IO(rootHW, rootHWL, pathHW, pathHWL, chosen_module, module_version[0], module_list, module_path, treeHW)
+    for z in range(len(chosen_module)):
+        add_IO(rootHW, rootHWL, pathHW, pathHWL, chosen_module[z-1], module_version[z-1], module_list, module_path, treeHW)
 
-    # print(rootHW.find('Hardware'))
-    # a = treeHW.findall('{http://br-automation.co.at/AS/Hardware}Module')
-    # print(a)
-    # print(type(a))
-
-    # for neighbor in rootHW.iter():
-    #     print(neighbor.attrib)
-
+    packed_var = find_IO_VarType(BRAutomation_path, chosen_module, module_version)
+    for a in packed_var:
+        print(a)
+    # add_global_var(project_path, packed_var)
+    # add_mapping(project_path, PLCname)
     # add_library(rootLib, pathLib, libraries[105], LIB_DESCRIPT)
-    # print(etree.tostring(rootHW, pretty_print=True, encoding='unicode'))
+
+    # print(etree.tostring(root, pretty_print=True, encoding='unicode'))
     print('END')

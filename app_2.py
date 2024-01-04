@@ -2,8 +2,7 @@ import tkinter
 import customtkinter  # <- import the CustomTkinter module
 from PIL import Image
 import os
-import main
-import bot_test
+
 
 #    os.system("bot_test.py")
 root = tkinter.Tk()  # create the Tk window like you normally do
