@@ -1,11 +1,10 @@
 import lxml.etree as etree
-from lxml import objectify
 import string
 import random
 import os
 from os import listdir
 from os.path import isfile, join, isdir
-import sys
+
 
 # a=sys.argv[1]
 
@@ -151,41 +150,38 @@ def add_library(root, path, name, descript):
     print(element.tag, element.attrib, element.tail)
     print(path)
 
-
-def add_global_var(path, list_var, howmany, names, PLC):                                  # ------------ NOT DONE --------------------
-    # DEKLARACJA STRUKTUR / VAR TYPE
+    # DEKLARACJA STRUKTUR / GLOBAL VAR / IO MAP
+def add_global_var(path, list_var, plc):
+    i = 0
+    module_names.sort()
     text_file_type = open(path + "/Logical/Global.typ", "w")
     text_file_var = open(path + "/Logical/Global.var", "w")
-    text_file_mapp = open(path + "/Physical/Config1/" + PLC + "/IoMap.iom", "w")
+    text_file_mapp = open(path + "/Physical/Config1/" + plc + "/IoMap.iom", "w")
     text_file_type.write('TYPE\n')
     text_file_var.write('VAR\n')
     text_file_mapp.write('VAR_CONFIG\n')
-    for i in range(len(names)):
-        # # text_file.write('::{0} AT %{1}X."{2}".{3};\n'.format(,,,)
-        # text_file_mapp.write('::ASEG1 AT %IX."X20AI4632P".StaleData; ::ASEG AT %IX."X20AI4632P".ModuleOk;\n')
-        names[i] = names[i].replace('-', '_')
-        text_file_var.write('IO_{0} : {1}_type;\n'.format(names[i], names[i]))
-        text_file_type.write('{0}_type : STRUCT\n'.format(names[i]))
-        print(names[i])
-        for a in list_var[i]:
-            if a == list_var[i][0]:
+    for name in list_var:
+        name[0] = name[0].replace('-', '_')
+        struct_type = '{0}_type'.format(name[0])
+        struct_name = 'IO_{0}'.format(name[0])
+        text_file_var.write('{0} : {1};\n'.format(struct_name, struct_type))
+        text_file_type.write('{0} : STRUCT\n'.format(struct_type))
+        for channel in list_var[i]:
+            if channel == list_var[i][0]:
                 continue
-            text_file_type.write('{0} : {1};\n'.format(a[0], a[1]))
-            print('{0} : {1};\n'.format(a[0], a[1]))
+            text_file_type.write('{0} : {1};\n'.format(channel[0], channel[1]))
+            letter_I_or_Q = 'I' if channel[2] == 'IN' else 'Q'
+            letter_X_or_W = 'X' if channel[1] == 'BOOL' else 'W'
+            print('::{0}.{1} AT %{2}{3}."{4}".{5};\n'.format(struct_name, channel[0], letter_I_or_Q, letter_X_or_W , module_names[i], channel[0]))
+            text_file_mapp.write('::{0}.{1} AT %{2}{3}."{4}".{5};\n'.format(struct_name, channel[0], letter_I_or_Q, letter_X_or_W , module_names[i], channel[0]))
         text_file_type.write('END_STRUCT;\n')
+        i = i + 1
     text_file_type.write('END_TYPE\n')      # TYPE
     text_file_type.close()
     text_file_var.write('END_VAR\n')        # VAR
     text_file_var.close()
     text_file_mapp.write('END_VAR\n')       # MAPP
     text_file_mapp.close()
-
-    # DEKLARACJA ZMIENNYCH GLOBALNYCH STRUKTUR
-
-
-#     VAR
-#     df: X20AO2632_1D_type;
-#     END_VAR
 
 
 def find_IO_VarType(path, modules, versions):
@@ -196,7 +192,6 @@ def find_IO_VarType(path, modules, versions):
 
         inputpath = path + r'/{0}/{1}/{2}.hwx'.format(module, (versions[i])[0], module)
         i = i + 1
-        how_many_modules = (len(modules))
 
         tree = etree.parse(inputpath)
 
@@ -211,22 +206,23 @@ def find_IO_VarType(path, modules, versions):
         old = ''
         # Przeanalizowanie linii <Parameter ID="Type" Value="BOOL" Type="STRING" /> w każdym z pozyskanych Channel
         for channel in channels_sg3:
-            type_parameter = channel.xpath('./ns:Parameter[@ID="Type"][@Type="STRING"]', namespaces=ns)
-
-            if type_parameter:
+            type_parameter = channel.xpath('./ns:Parameter[@ID="Type"]', namespaces=ns)
+            direction_parameter = channel.xpath('./ns:Parameter[@ID="Direction"]', namespaces=ns)
+            if type_parameter and direction_parameter:
                 value = type_parameter[0].get('Value')
-                channel_value = f"{module} {channel.get('ID')} {value}"
+                dir = direction_parameter[0].get('Value')
+                # channel_value = f"{module} {channel.get('ID')} {value} {dir}"
                 # print(channel.get('ID'))
                 # print(value)
                 if module != old:
                     var_list.append([module])
                     f = f + 1
 
-                var_list[f-1].append([channel.get('ID'),value])
+                var_list[f-1].append([channel.get('ID'),value,dir])
                 old = module
             else:
                 print(f"  Brak informacji {channel.get('ID')}")
-    return var_list, how_many_modules
+    return var_list
 
 if __name__ == '__main__':
     module_list, module_path, libraries = find_modules(which_disk_br)  # lista modułów zainstalowanych na dysku C
@@ -237,7 +233,8 @@ if __name__ == '__main__':
     # 1520 - 2093 MODUŁY IO (NIEKONIECZNIE WSZYSTKIE SĄ IO)
 
     # ZMIEN TE DWA W JEDNO ---------------
-    chosen_module = [module_list[1828],module_list[1864],module_list[1546],module_list[1529]]
+    chosen_module = [module_list[1823],module_list[1865],module_list[1545],module_list[1527]]
+
     module_version = [find_module_version(chosen_module[0], module_path),find_module_version(chosen_module[1], module_path)
         ,find_module_version(chosen_module[2], module_path),find_module_version(chosen_module[3], module_path)]
 
@@ -247,10 +244,10 @@ if __name__ == '__main__':
         add_IO(rootHW, rootHWL, pathHW, pathHWL, chosen_module[z-1], module_version[z-1], module_list, module_path, treeHW)
 
     #
-    packed_var, how_many_module = find_IO_VarType(BRAutomation_path, chosen_module, module_version)
-    print(packed_var)
-    add_global_var(project_path, packed_var, how_many_module, module_names, PLCname)
-    # add_mapping(project_path, PLCname)
+    packed_var = find_IO_VarType(BRAutomation_path, chosen_module, module_version)
+    packed_var.sort()
+    add_global_var(project_path, packed_var, PLCname)
+
     # add_library(rootLib, pathLib, libraries[105], LIB_DESCRIPT)
 
     # print(etree.tostring(root, pretty_print=True, encoding='unicode'))
