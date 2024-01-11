@@ -168,12 +168,17 @@ def add_mapping(path, PLC):                                          # ---------
     print('Mapping added')
 
 
-def add_global_var(path, list_var, names):                                  # ------------ NOT DONE --------------------
+def add_global_var(path, list_var, howmany, names):                                  # ------------ NOT DONE --------------------
     # DEKLARACJA STRUKTUR / VAR TYPE
     text_file = open(path + "/Logical/Global.typ", "w")
+    text_file2 = open(path + "/Logical/Global.var", "w")
     text_file.write('TYPE\n')
+    text_file2.write('VAR\n')
     for i in range(len(names)):
+        names[i] = names[i].replace('-', '_')
+        text_file2.write('IO_{0} : {1};\n'.format(names[i], names[i]))
         text_file.write('{0}_type : STRUCT\n'.format(names[i]))
+
         print(names[i])
         for a in list_var[0]:
             if a == list_var[0][0]:
@@ -182,15 +187,15 @@ def add_global_var(path, list_var, names):                                  # --
         text_file.write('END_STRUCT;\n')
     text_file.write('END_TYPE\n')
     text_file.close()
+    text_file2.write('END_VAR\n')
+    text_file2.close()
 
-    # # DEKLARACJA ZMIENNYCH GLOBALNYCH STRUKTUR
-    # text_file = open(path + "/Logical/Global.var", "w")
-    # text_file.write('VAR\n')
-    # #TU WPISZ
-    # text_file.write('END_VAR\n')
-    # text_file.close()
+    # DEKLARACJA ZMIENNYCH GLOBALNYCH STRUKTUR
 
 
+#     VAR
+#     df: X20AO2632_1D_type;
+#     END_VAR
 
 
 def find_IO_VarType(path, modules, versions):
@@ -198,8 +203,11 @@ def find_IO_VarType(path, modules, versions):
     f = 0
     var_list = []
     for module in modules:
+
         inputpath = path + r'/{0}/{1}/{2}.hwx'.format(module, (versions[i])[0], module)
         i = i + 1
+        how_many_modules = (len(modules))
+
         tree = etree.parse(inputpath)
 
         # Przestrzeń nazw XML
@@ -228,7 +236,7 @@ def find_IO_VarType(path, modules, versions):
                 old = module
             else:
                 print(f"  Brak informacji {channel.get('ID')}")
-    return var_list
+    return var_list, how_many_modules
 
 if __name__ == '__main__':
     module_list, module_path, libraries = find_modules(which_disk_br)  # lista modułów zainstalowanych na dysku C
@@ -247,10 +255,11 @@ if __name__ == '__main__':
 
     for z in range(len(chosen_module)):
         add_IO(rootHW, rootHWL, pathHW, pathHWL, chosen_module[z-1], module_version[z-1], module_list, module_path, treeHW)
-    #
-    packed_var = find_IO_VarType(BRAutomation_path, chosen_module, module_version)
 
-    add_global_var(project_path, packed_var, module_names)
+    #
+    packed_var, how_many_module = find_IO_VarType(BRAutomation_path, chosen_module, module_version)
+    print(packed_var[1][0])
+    add_global_var(project_path, packed_var, how_many_module, module_names)
     # add_mapping(project_path, PLCname)
     # add_library(rootLib, pathLib, libraries[105], LIB_DESCRIPT)
 
