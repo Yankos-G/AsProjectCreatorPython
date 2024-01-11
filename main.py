@@ -126,9 +126,6 @@ def add_IO(root_hw, root_hwl, path_hw, path_hwl, type, version, m_list, m_path, 
         ns = {'hw': 'http://br-automation.co.at/AS/Hardware'}
         a = "//hw:Module[@Name='{}']/hw:Connection/@TargetConnector".format(nameBM)
         checkIF6slot = rootHW.xpath(a, namespaces=ns)
-        print(checkIF6slot)
-
-        print(last)
         etree.SubElement(elementBM, 'Connection', Connector='X2X1', TargetModule=PLCname,
                          TargetConnector='IF6')
         last = nameBM
@@ -155,40 +152,33 @@ def add_library(root, path, name, descript):
     print(path)
 
 
-def add_mapping(path, PLC):                                          # ------------ NOT DONE --------------------
-    # WYRZUCA CAŁY PLIK I NADPISUJE
-    text_file = open(path + "/Physical/Config1/" + PLC + "/IoMap.iom", "w")
-    text_file.write('VAR_CONFIG\n')
-    # NALEZY DODAC 4 INFORMACJE TUTAJ
-    # Nazwa zmiennej - WE/WY - MODUŁ - Channel
-    # text_file.write('::{0} AT %{1}X."{2}".{3};\n'.format(,,,)
-    text_file.write('::ASEG1 AT %IX."X20AI4632P".StaleData; ::ASEG AT %IX."X20AI4632P".ModuleOk;\n')
-    text_file.write('END_VAR\n')
-    text_file.close()
-    print('Mapping added')
-
-
-def add_global_var(path, list_var, howmany, names):                                  # ------------ NOT DONE --------------------
+def add_global_var(path, list_var, howmany, names, PLC):                                  # ------------ NOT DONE --------------------
     # DEKLARACJA STRUKTUR / VAR TYPE
-    text_file = open(path + "/Logical/Global.typ", "w")
-    text_file2 = open(path + "/Logical/Global.var", "w")
-    text_file.write('TYPE\n')
-    text_file2.write('VAR\n')
+    text_file_type = open(path + "/Logical/Global.typ", "w")
+    text_file_var = open(path + "/Logical/Global.var", "w")
+    text_file_mapp = open(path + "/Physical/Config1/" + PLC + "/IoMap.iom", "w")
+    text_file_type.write('TYPE\n')
+    text_file_var.write('VAR\n')
+    text_file_mapp.write('VAR_CONFIG\n')
     for i in range(len(names)):
+        # # text_file.write('::{0} AT %{1}X."{2}".{3};\n'.format(,,,)
+        # text_file_mapp.write('::ASEG1 AT %IX."X20AI4632P".StaleData; ::ASEG AT %IX."X20AI4632P".ModuleOk;\n')
         names[i] = names[i].replace('-', '_')
-        text_file2.write('IO_{0} : {1};\n'.format(names[i], names[i]))
-        text_file.write('{0}_type : STRUCT\n'.format(names[i]))
-
+        text_file_var.write('IO_{0} : {1}_type;\n'.format(names[i], names[i]))
+        text_file_type.write('{0}_type : STRUCT\n'.format(names[i]))
         print(names[i])
-        for a in list_var[0]:
-            if a == list_var[0][0]:
+        for a in list_var[i]:
+            if a == list_var[i][0]:
                 continue
-            text_file.write('{0} : {1};\n'.format(a[0], a[1]))
-        text_file.write('END_STRUCT;\n')
-    text_file.write('END_TYPE\n')
-    text_file.close()
-    text_file2.write('END_VAR\n')
-    text_file2.close()
+            text_file_type.write('{0} : {1};\n'.format(a[0], a[1]))
+            print('{0} : {1};\n'.format(a[0], a[1]))
+        text_file_type.write('END_STRUCT;\n')
+    text_file_type.write('END_TYPE\n')      # TYPE
+    text_file_type.close()
+    text_file_var.write('END_VAR\n')        # VAR
+    text_file_var.close()
+    text_file_mapp.write('END_VAR\n')       # MAPP
+    text_file_mapp.close()
 
     # DEKLARACJA ZMIENNYCH GLOBALNYCH STRUKTUR
 
@@ -258,8 +248,8 @@ if __name__ == '__main__':
 
     #
     packed_var, how_many_module = find_IO_VarType(BRAutomation_path, chosen_module, module_version)
-    print(packed_var[1][0])
-    add_global_var(project_path, packed_var, how_many_module, module_names)
+    print(packed_var)
+    add_global_var(project_path, packed_var, how_many_module, module_names, PLCname)
     # add_mapping(project_path, PLCname)
     # add_library(rootLib, pathLib, libraries[105], LIB_DESCRIPT)
 
