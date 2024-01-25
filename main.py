@@ -9,7 +9,7 @@ from os.path import isfile, join, isdir
 which_disk_br = 'C:/'
 as_project_path = r'C:\projects'
 filename = r'TESTLD'
-library_path = r'C:\BRAutomation\AS\Library' # to chyba można usunac bo jest dysk
+library_path = r'C:\BRAutomation\AS\Library'  # to chyba można usunac bo jest dysk
 PLCname = 'X20CP1584'
 
 # CONSTANTS
@@ -19,6 +19,7 @@ IF6busy = False
 last = ''
 LIB_DESCRIPT = 'program added library'
 project_path = as_project_path + chr(92) + filename
+
 
 # # KOD TO SZUKANIA PLIKÓW BIBLIOTEK
 # def find_modules(disk_path):
@@ -41,7 +42,6 @@ project_path = as_project_path + chr(92) + filename
 #                 param_path = os.path.join(dirpath, filename)
 #                 print(param_path)
 #                 return param_path
-
 
 
 # KOD TO SZUKANIA PLIKÓW MODUŁU I BIBLIOTEK
@@ -152,7 +152,8 @@ def extract_connector_and_classification_info(path, module, ver):
         for autoconnect in autoconnect_elements:
             module_id = autoconnect.get("ModuleID")
             connector_name_autoconnect = autoconnect.get("ConnectorName")
-            connector_info.append([['Name',connector_name],['ModuleID',module_id],['AutoConnect',connector_name_autoconnect]])
+            connector_info.append(
+                [['Name', connector_name], ['ModuleID', module_id], ['AutoConnect', connector_name_autoconnect]])
 
     classification_info = []
     for elem in classification_elements:
@@ -230,8 +231,9 @@ def add_library(root, path, name, descript):
     # print(element.tag, element.attrib, element.tail)
     # print(path)
 
-
     # DEKLARACJA STRUKTUR / GLOBAL VAR / IO MAP
+
+
 def add_global_var(path, list_var, plc):
     i = 0
     module_names.sort()
@@ -251,17 +253,26 @@ def add_global_var(path, list_var, plc):
             if channel == list_var[i][0]:
                 continue
             text_file_type.write('{0} : {1};\n'.format(channel[0], channel[1]))
+
             letter_I_or_Q = 'I' if channel[2] == 'IN' else 'Q'
-            letter_X_or_W = 'X' if channel[1] == 'BOOL' else 'W'
+            letter_X_or_W_or_B_or_DW = 'X' if channel[1] == 'BOOL' else \
+                'W' if channel[1] == 'INT' or channel[1] == 'UINT' or channel[1] == 'WORD' else \
+                    'B' if channel[1] == 'USINT' or channel[1] == 'SINT' or channel[1] == 'BYTE' else \
+                        'D' if channel[1] == 'DINT' or channel[1] == 'REAL' or channel[1] == 'DWORD' else None
+
+            if (not letter_X_or_W_or_B_or_DW or not letter_I_or_Q):
+                print('ERROR - IO DATA NOT FITTED THE CODE :((')
             # print('::{0}.{1} AT %{2}{3}."{4}".{5};\n'.format(struct_name, channel[0], letter_I_or_Q, letter_X_or_W , module_names[i], channel[0]))
-            text_file_mapp.write('::{0}.{1} AT %{2}{3}."{4}".{5};\n'.format(struct_name, channel[0], letter_I_or_Q, letter_X_or_W , module_names[i], channel[0]))
+            text_file_mapp.write(
+                '::{0}.{1} AT %{2}{3}."{4}".{5};\n'.format(struct_name, channel[0], letter_I_or_Q, letter_X_or_W_or_B_or_DW,
+                                                           module_names[i], channel[0]))
         text_file_type.write('END_STRUCT;\n')
         i = i + 1
-    text_file_type.write('END_TYPE\n')      # TYPE
+    text_file_type.write('END_TYPE\n')  # TYPE
     text_file_type.close()
-    text_file_var.write('END_VAR\n')        # VAR
+    text_file_var.write('END_VAR\n')  # VAR
     text_file_var.close()
-    text_file_mapp.write('END_VAR\n')       # MAPP
+    text_file_mapp.write('END_VAR\n')  # MAPP
     text_file_mapp.close()
 
 
@@ -299,11 +310,12 @@ def find_IO_VarType(path, modules, versions):
                     var_list.append([module])
                     f = f + 1
 
-                var_list[f-1].append([channel.get('ID'),value,dir])
+                var_list[f - 1].append([channel.get('ID'), value, dir])
                 old = module
             else:
                 print(f"  Brak informacji {channel.get('ID')}")
     return var_list
+
 
 if __name__ == '__main__':
     module_list, module_path, libraries = find_modules(which_disk_br)  # lista modułów zainstalowanych na dysku C
@@ -313,19 +325,26 @@ if __name__ == '__main__':
     # 1480 - 1520 KAMERY WIZYJNE
     # 1520 - 2093 MODUŁY IO (NIEKONIECZNIE WSZYSTKIE SĄ IO)
 
-    # ZMIEN TE DWA W JEDNO ---------------
-    chosen_module = [module_list[1823],module_list[module_list.index('X20DO4613')],module_list[1547],module_list[1524]]
-    print(chosen_module)
-    module_version = [find_module_version(chosen_module[0], module_path),find_module_version(chosen_module[1], module_path)
-        ,find_module_version(chosen_module[2], module_path),find_module_version(chosen_module[3], module_path)]
+    chosen_module = []
+    module_version = []
+    table = ['X20AI1744', 'X20AI4636', 'X20DOD322', 'X20DO4633']
 
+
+    # ZMIEN TE DWA W JEDNO ---------------
+    for name in table:
+        try:
+            chosen_module.append(module_list[module_list.index(name)])
+            module_version.append(find_module_version(name, module_path))
+        except:
+            print('Module {} not found in files'.format(name))
 
     rootHW, rootHWL, rootLib, pathHW, pathHWL, pathLib, treeHW = get_to_files(project_path)
 
-
     for z in range(len(chosen_module)):
-        class_data, connection_data = extract_connector_and_classification_info(module_path, chosen_module[z-1], module_version[z-1])
-        add_IO(rootHW, rootHWL, pathHW, pathHWL, chosen_module[z-1], module_version[z-1], module_list, module_path, class_data, connection_data)
+        class_data, connection_data = extract_connector_and_classification_info(module_path, chosen_module[z - 1],
+                                                                                module_version[z - 1])
+        add_IO(rootHW, rootHWL, pathHW, pathHWL, chosen_module[z - 1], module_version[z - 1], module_list, module_path,
+               class_data, connection_data)
     packed_var = find_IO_VarType(BRAutomation_path, chosen_module, module_version)
     packed_var.sort()
     add_global_var(project_path, packed_var, PLCname)
