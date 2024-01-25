@@ -5,14 +5,11 @@ import os
 from os import listdir
 from os.path import isfile, join, isdir
 
-
-# a=sys.argv[1]
-
 # INPUTS
 which_disk_br = 'C:/'
 as_project_path = r'C:\projects'
 filename = r'TESTLD'
-library_path = r'C:\BRAutomation\AS\Library'
+library_path = r'C:\BRAutomation\AS\Library' # to chyba można usunac bo jest dysk
 PLCname = 'X20CP1584'
 
 # CONSTANTS
@@ -32,6 +29,19 @@ project_path = as_project_path + chr(92) + filename
 #                 mypath = dirpath + r'BRAutomation/AS412/AS/Hardware/Modules'
 #                 modules = [f for f in listdir(mypath) if isdir(join(mypath, f))]
 #                 return modules,mypath
+
+
+# # KOD TO SZUKANIA PARAMETRÓW MODUŁÓW
+# def find_param_of_modules(path,module,ver):
+#     path = path + '/' + module + '/' + ver[0]
+#     print(path)
+#     for dirpath, dirnames, filenames in os.walk(path):
+#         for filename in filenames:
+#             if filename.endswith(".hwx"):
+#                 param_path = os.path.join(dirpath, filename)
+#                 print(param_path)
+#                 return param_path
+
 
 
 # KOD TO SZUKANIA PLIKÓW MODUŁU I BIBLIOTEK
@@ -85,7 +95,75 @@ def get_random_string(length):
     return result_str
 
 
-def add_IO(root_hw, root_hwl, path_hw, path_hwl, type, version, m_list, m_path, tree_hw):
+# ----------------------------------------TU SKOŃCZYŁEM--------COS NIEDZIAŁA----------------------------------------
+# def find_connector_info(path, module, ver):
+#     path = path + '/' + module + '/' + ver[0] + '/' + module + '.hwx'
+#     try:
+#         tree = etree.parse(path)
+#         root = tree.getroot()
+#     except:
+#         print('ERROR - Cannot get to file in destination:', path)
+#         exit()
+#
+#     # Znalezienie elementów Connector pod Connectors
+#     connector_elements = root.findall(".//Connectors/Connector")
+#
+#     connector_info_list = []
+#
+#     # Iteracja po znalezionych elementach Connector
+#     for connector in connector_elements:
+#         connector_name = connector.get("Name")
+#         module_id = connector.find("./AutoConnect").get("ModuleID")
+#         connector_name_autoconnect = connector.find("./AutoConnect").get("ConnectorName")
+#
+#         connector_info_list.append({
+#             "ConnectorName": connector_name,
+#             "ModuleID": module_id,
+#             "ConnectorNameAutoConnect": connector_name_autoconnect
+#         })
+#
+#     for connector_info in connector_elements:
+#         print("ConnectorName:", connector_info["ConnectorName"])
+#         print("ModuleID:", connector_info["ModuleID"])
+#         print("ConnectorNameAutoConnect:", connector_info["ConnectorNameAutoConnect"])
+#         print("-" * 30)
+#
+#     return connector_info_list
+
+def extract_connector_and_classification_info(path, module, ver):
+    # Parsowanie XML
+    path = path + '/' + module + '/' + ver[0] + '/' + module + '.hwx'
+    try:
+        tree = etree.parse(path)
+        root = tree.getroot()
+    except:
+        print('ERROR - Cannot get to file in destination:', path)
+        exit()
+
+    ns = {'hw': 'http://br-automation.co.at/AS/HardwareModule'}
+    e = "//hw:Classification/*"
+    classification_elements = root.xpath(e, namespaces=ns)
+
+    connector_info = []
+    connector_elements = root.xpath("//hw:Connectors/hw:Connector", namespaces=ns)
+    for connector in connector_elements:
+        connector_name = connector.get("Name")
+        autoconnect_elements = connector.xpath("./hw:AutoConnect", namespaces=ns)
+        for autoconnect in autoconnect_elements:
+            module_id = autoconnect.get("ModuleID")
+            connector_name_autoconnect = autoconnect.get("ConnectorName")
+            connector_info.append([['Name',connector_name],['ModuleID',module_id],['AutoConnect',connector_name_autoconnect]])
+
+    classification_info = []
+    for elem in classification_elements:
+        classification_info.append([elem.tag.split('}')[1], elem.get("Value")])
+
+    return classification_info, connector_info
+
+
+# ----------------------------------------------------------------------------------------------------------
+
+def add_IO(root_hw, root_hwl, path_hw, path_hwl, type, version, m_list, m_path, class_d, connection_d):
     global IF6busy
     global last
     global module_names
@@ -94,37 +172,39 @@ def add_IO(root_hw, root_hwl, path_hw, path_hwl, type, version, m_list, m_path, 
     element = etree.SubElement(root_hwl, 'Module', Name=name, Type=type, X='450', Y='450')
     root_hwl[1][0].append(element)
     etree.ElementTree(root_hwl).write(path_hwl)
-    print(element.tag, element.attrib)
+    # print(element.tag, element.attrib)
 
     element = etree.SubElement(root_hw, 'Module', Name=name, Type=type, Version=version[0])
     root_hw.append(element)
-    print(element.tag, element.attrib)
+    # print(element.tag, element.attrib)
     module_names.append(name)
 
-    typeTB = m_list[m_list.index('X20TB12')]
-    typeBM = m_list[m_list.index('X20BM11')]
-    m_verTB = find_module_version(typeTB, m_path)
-    m_verBM = find_module_version(typeBM, m_path)
-    nameBM = typeBM + str
-    nameTB = typeTB + str
-    print(nameBM)
-    print(nameTB)
-    elementTB = etree.SubElement(root_hw, 'Module', Name=nameTB, Type=typeTB, Version=m_verTB[0])
-    root_hw.append(elementTB)
-    elementBM = etree.SubElement(root_hw, 'Module', Name=nameBM, Type=typeBM, Version=m_verBM[0])
-    root_hw.append(elementBM)
+    if class_d and connection_d:
+        typeTB = connection_d[0][1][1]
+        typeBM = connection_d[1][1][1]
+        m_verTB = find_module_version(typeTB, m_path)
+        m_verBM = find_module_version(typeBM, m_path)
+        nameBM = typeBM + str
+        nameTB = typeTB + str
+        print(nameBM)
+        print(nameTB)
+        elementTB = etree.SubElement(root_hw, 'Module', Name=nameTB, Type=typeTB, Version=m_verTB[0])
+        root_hw.append(elementTB)
+        elementBM = etree.SubElement(root_hw, 'Module', Name=nameBM, Type=typeBM, Version=m_verBM[0])
+        root_hw.append(elementBM)
 
-    # CONNECTIONS - DODANIE CHILD DO ELEMENTU (MODUŁ GŁOWNY Z POMOCNYMI)
-    etree.SubElement(element, 'Connection', Connector='SL', TargetModule=nameBM,
-                     TargetConnector='SL1')
-    etree.SubElement(element, 'Connection', Connector='SS1', TargetModule=nameTB,
-                     TargetConnector='SS')
+        # CONNECTIONS - DODANIE CHILD DO ELEMENTU (MODUŁ GŁOWNY Z POMOCNYMI)
+        etree.SubElement(element, 'Connection', Connector=connection_d[1][0][1], TargetModule=nameBM,
+                         TargetConnector=connection_d[1][2][1])
+        etree.SubElement(element, 'Connection', Connector=connection_d[0][0][1], TargetModule=nameTB,
+                         TargetConnector=connection_d[0][2][1])
+
     if not IF6busy:
         etree.ElementTree(root_hw).write(path_hw)
         # CONNECTIONS - DODANIE CHILD DO BM (PODSTAWKA DO AKTUALNIE WOLNEGO SLOTA)
         ns = {'hw': 'http://br-automation.co.at/AS/Hardware'}
         a = "//hw:Module[@Name='{}']/hw:Connection/@TargetConnector".format(nameBM)
-        checkIF6slot = rootHW.xpath(a, namespaces=ns)
+        checkIF6slot = root_hw.xpath(a, namespaces=ns)
         etree.SubElement(elementBM, 'Connection', Connector='X2X1', TargetModule=PLCname,
                          TargetConnector='IF6')
         last = nameBM
@@ -147,8 +227,9 @@ def add_library(root, path, name, descript):
     root[0].append(element)
     etree.ElementTree(root).write(path)
     # shutil.move(src,dst)
-    print(element.tag, element.attrib, element.tail)
-    print(path)
+    # print(element.tag, element.attrib, element.tail)
+    # print(path)
+
 
     # DEKLARACJA STRUKTUR / GLOBAL VAR / IO MAP
 def add_global_var(path, list_var, plc):
@@ -172,7 +253,7 @@ def add_global_var(path, list_var, plc):
             text_file_type.write('{0} : {1};\n'.format(channel[0], channel[1]))
             letter_I_or_Q = 'I' if channel[2] == 'IN' else 'Q'
             letter_X_or_W = 'X' if channel[1] == 'BOOL' else 'W'
-            print('::{0}.{1} AT %{2}{3}."{4}".{5};\n'.format(struct_name, channel[0], letter_I_or_Q, letter_X_or_W , module_names[i], channel[0]))
+            # print('::{0}.{1} AT %{2}{3}."{4}".{5};\n'.format(struct_name, channel[0], letter_I_or_Q, letter_X_or_W , module_names[i], channel[0]))
             text_file_mapp.write('::{0}.{1} AT %{2}{3}."{4}".{5};\n'.format(struct_name, channel[0], letter_I_or_Q, letter_X_or_W , module_names[i], channel[0]))
         text_file_type.write('END_STRUCT;\n')
         i = i + 1
@@ -233,21 +314,21 @@ if __name__ == '__main__':
     # 1520 - 2093 MODUŁY IO (NIEKONIECZNIE WSZYSTKIE SĄ IO)
 
     # ZMIEN TE DWA W JEDNO ---------------
-    chosen_module = [module_list[1823],module_list[1865],module_list[1545],module_list[1527]]
-
+    chosen_module = [module_list[1823],module_list[module_list.index('X20DO4613')],module_list[1547],module_list[1524]]
+    print(chosen_module)
     module_version = [find_module_version(chosen_module[0], module_path),find_module_version(chosen_module[1], module_path)
         ,find_module_version(chosen_module[2], module_path),find_module_version(chosen_module[3], module_path)]
 
+
     rootHW, rootHWL, rootLib, pathHW, pathHWL, pathLib, treeHW = get_to_files(project_path)
 
-    for z in range(len(chosen_module)):
-        add_IO(rootHW, rootHWL, pathHW, pathHWL, chosen_module[z-1], module_version[z-1], module_list, module_path, treeHW)
 
-    #
+    for z in range(len(chosen_module)):
+        class_data, connection_data = extract_connector_and_classification_info(module_path, chosen_module[z-1], module_version[z-1])
+        add_IO(rootHW, rootHWL, pathHW, pathHWL, chosen_module[z-1], module_version[z-1], module_list, module_path, class_data, connection_data)
     packed_var = find_IO_VarType(BRAutomation_path, chosen_module, module_version)
     packed_var.sort()
     add_global_var(project_path, packed_var, PLCname)
-
     # add_library(rootLib, pathLib, libraries[105], LIB_DESCRIPT)
 
     # print(etree.tostring(root, pretty_print=True, encoding='unicode'))

@@ -80,9 +80,9 @@ while True:
             try:
                 a = py.locateOnScreen('C:/Users/Szkolenie/Desktop/AS/AS.png')
                 py.doubleClick(a.left+15, a.top+10)
-                print('Icon located', a)
                 state= 'is_open'
             except:
+
                 time.sleep(0.25)
                 print('Cannot find AS icon on desktop')
         case 'is_open':
